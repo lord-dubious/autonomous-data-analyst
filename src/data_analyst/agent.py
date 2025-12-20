@@ -74,7 +74,7 @@ def create_agent(model_name: str | None = None) -> Agent[DuckDBManager, str]:
     """Create and configure the data analyst agent.
 
     Args:
-        model_name: Optional model name override. Defaults to gemini-3-flash-preview.
+        model_name: Optional model name override. Defaults to gemini-2.5-flash.
 
     Returns:
         Configured Pydantic AI agent with all tools registered.
@@ -83,8 +83,8 @@ def create_agent(model_name: str | None = None) -> Agent[DuckDBManager, str]:
         >>> agent = create_agent()
         >>> result = await agent.run("What are the total sales?", deps=db)
     """
-    # Use provided model name or default to latest Gemini 3.0 Flash
-    model = model_name or os.getenv("MODEL_NAME", "google-gla:gemini-3-flash-preview")
+    # Use provided model name or default to Gemini 2.5 Flash
+    model = model_name or os.getenv("MODEL_NAME", "google-gla:gemini-2.5-flash")
 
     # Create the agent
     agent = Agent(
