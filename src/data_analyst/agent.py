@@ -22,7 +22,7 @@ from data_analyst.tools import (
 )
 
 if TYPE_CHECKING:
-    from pydantic_ai.result import RunResult
+    from pydantic_ai import AgentRunResult
 
 # Load environment variables
 load_dotenv()
@@ -74,7 +74,7 @@ def create_agent(model_name: str | None = None) -> Agent[DuckDBManager, str]:
     """Create and configure the data analyst agent.
 
     Args:
-        model_name: Optional model name override. Defaults to gemini-2.0-flash.
+        model_name: Optional model name override. Defaults to gemini-3-flash-preview.
 
     Returns:
         Configured Pydantic AI agent with all tools registered.
@@ -83,8 +83,8 @@ def create_agent(model_name: str | None = None) -> Agent[DuckDBManager, str]:
         >>> agent = create_agent()
         >>> result = await agent.run("What are the total sales?", deps=db)
     """
-    # Use provided model name or default
-    model = model_name or os.getenv("MODEL_NAME", "google-gla:gemini-2.0-flash")
+    # Use provided model name or default to latest Gemini 3.0 Flash
+    model = model_name or os.getenv("MODEL_NAME", "google-gla:gemini-3-flash-preview")
 
     # Create the agent
     agent = Agent(
@@ -147,8 +147,8 @@ async def analyze(
     if agent is None:
         agent = get_agent()
 
-    result: RunResult[str] = await agent.run(question, deps=db)
-    return result.data
+    result: AgentRunResult[str] = await agent.run(question, deps=db)
+    return result.output
 
 
 def analyze_sync(
@@ -176,4 +176,4 @@ def analyze_sync(
         agent = get_agent()
 
     result = agent.run_sync(question, deps=db)
-    return result.data
+    return result.output
