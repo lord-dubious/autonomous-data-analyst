@@ -1,0 +1,14 @@
+# Development dependencies for Autonomous Data Analyst
+# Install with: pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pytest-recording>=0.13.0
+httpx>=0.27.0
+
+# Code Quality
+ruff>=0.8.0
+pre-commit>=4.0.0
