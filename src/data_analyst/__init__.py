@@ -15,14 +15,27 @@ from data_analyst.models import (
     TableSchema,
 )
 from data_analyst.database import DuckDBManager
+from data_analyst.agent import (
+    analyze,
+    analyze_sync,
+    create_agent,
+    get_agent,
+)
 
 __all__ = [
+    # Models
     "AnalysisPlan",
     "AnalysisResponse",
     "ChartSpec",
     "QueryResult",
     "TableSchema",
+    # Database
     "DuckDBManager",
+    # Agent
+    "analyze",
+    "analyze_sync",
+    "create_agent",
+    "get_agent",
 ]
 
 __version__ = "1.0.0"
