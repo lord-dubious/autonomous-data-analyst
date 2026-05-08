@@ -14,12 +14,57 @@ This document is written for reviewers who want to understand how the project is
 6. Charts/exports
 
 ```mermaid
-flowchart LR
-    A1[CSV upload/load] --> A2[DuckDB table creation]
-    A2[DuckDB table creation] --> A3[Natural-language question]
-    A3[Natural-language question] --> A4[Pydantic AI/Gemini analysis or degraded metadata]
-    A4[Pydantic AI/Gemini analysis or degraded metadata] --> A5[FastAPI/Streamlit response]
-    A5[FastAPI/Streamlit response] --> A6[Charts/exports]
+flowchart TB
+    classDef input fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63
+    classDef core fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef metadata fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef review fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+
+    CSV[/CSV dataset/]:::input
+    Question[/Natural-language question/]:::input
+    User[/Analyst or reviewer/]:::review
+
+    subgraph DataLayer["Data Loading Boundary"]
+        Loader[DuckDBManager CSV loader]:::core
+        DuckDB[(DuckDB)]:::external
+        LoadMeta[last_load_metadata]:::metadata
+    end
+
+    subgraph Interfaces["User Interfaces"]
+        API[FastAPI service]:::core
+        App[Streamlit app]:::core
+        CLI[data-analyst entrypoint]:::core
+    end
+
+    subgraph Intelligence["Analysis Boundary"]
+        Agent[Pydantic AI analysis agent]:::core
+        Gemini{{Gemini API optional}}:::external
+        QueryResult[QueryResult metadata]:::metadata
+        AnalysisMeta[Agent degraded metadata]:::metadata
+    end
+
+    subgraph Output["Reviewable Answers"]
+        Response[Sanitized API or UI response]:::review
+        Charts[Charts exports and tables]:::review
+    end
+
+    CSV --> Loader --> DuckDB
+    Loader -. load failure .-> LoadMeta
+    Question --> API
+    Question --> App
+    Question --> CLI
+    API --> Agent
+    App --> Agent
+    CLI --> Agent
+    Agent <-->|optional reasoning| Gemini
+    Agent --> DuckDB
+    DuckDB --> QueryResult --> Agent
+    Agent -. provider failure .-> AnalysisMeta
+    LoadMeta --> Response
+    AnalysisMeta --> Response
+    Agent --> Response --> User
+    QueryResult --> Charts --> User
 ```
 
 ## Main Components
