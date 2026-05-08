@@ -4,7 +4,9 @@
 
 ## Portfolio Showcase
 
-![Autonomous Data Analyst CLI showcase](docs/assets/showcase.png)
+![Autonomous Data Analyst Streamlit dashboard](docs/assets/showcase.png)
+
+The screenshot is captured from the real Streamlit app (`streamlit run app/streamlit_app.py`) so reviewers can see the browser UI, upload workflow, and analysis entry point rather than a static CLI mockup.
 
 - **Architecture deep dive:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Demo guide:** [`docs/DEMO.md`](docs/DEMO.md)
