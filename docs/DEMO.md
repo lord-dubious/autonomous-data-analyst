@@ -37,7 +37,13 @@ Use this sequence in an interview or portfolio review:
 
 ## Screenshots And Videos
 
-No generated screenshot or video is included here because a fake recording would weaken the portfolio. If you add one later, capture it from a real local run with sanitized sample data and include the exact command/config used to produce it.
+The README screenshot is generated from the real Streamlit surface, not a mock image:
+
+```bash
+streamlit run app/streamlit_app.py --server.headless true --server.port 8070
+```
+
+It shows the upload sidebar, controls area, and welcome flow that reviewers see before loading a CSV. If you add a video later, capture it from the same local app with sanitized sample data and include the exact command/config used to produce it.
 
 ## Demo Boundaries
 
