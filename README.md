@@ -1,6 +1,11 @@
 # Autonomous Data Analyst
 
 [![CI](https://github.com/lord-dubious/autonomous-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/lord-dubious/autonomous-data-analyst/actions/workflows/ci.yml)
+
+## Portfolio Review
+
+- [Architecture](docs/ARCHITECTURE.md) - component boundaries, data flow, external dependencies, and degraded-mode behavior.
+- [Demo Guide](docs/DEMO.md) - safe local walkthrough commands and recruiter-facing talking points.
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Pydantic AI](https://img.shields.io/badge/Pydantic%20AI-Powered-green.svg)](https://ai.pydantic.dev/)
