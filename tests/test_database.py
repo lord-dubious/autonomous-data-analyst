@@ -6,8 +6,6 @@ import io
 import sys
 from pathlib import Path
 
-import pytest
-
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -53,6 +51,9 @@ class TestDuckDBManager:
         assert result.data is None
         assert result.error is not None
         assert "nonexistent_table" in result.error.lower()
+        assert result.metadata is not None
+        assert result.metadata["boundary"] == "duckdb_query"
+        assert result.metadata["degraded"] is True
 
     def test_execute_query_aggregation(self, sample_db: DuckDBManager) -> None:
         """Test aggregation query."""
@@ -104,6 +105,9 @@ class TestDuckDBManager:
         success = empty_db.load_csv(sample_csv_path, "test_table")
 
         assert success is True
+        assert empty_db.last_load_metadata["success"] is True
+        assert empty_db.last_load_metadata["stage"] == "loaded"
+        assert empty_db.last_load_metadata["row_count"] == 3
         assert "test_table" in empty_db.list_tables()
 
         result = empty_db.execute_query("SELECT COUNT(*) as cnt FROM test_table")
@@ -123,6 +127,19 @@ class TestDuckDBManager:
         """Test loading nonexistent CSV file."""
         success = empty_db.load_csv("/nonexistent/path.csv", "test_table")
         assert success is False
+        assert empty_db.last_load_metadata["success"] is False
+        assert empty_db.last_load_metadata["stage"] == "read_csv"
+        assert empty_db.last_load_metadata["error_type"] == "FileNotFoundError"
+        assert "not found" in empty_db.last_load_metadata["error"]
+
+    def test_load_csv_invalid_content_records_metadata(self, empty_db: DuckDBManager) -> None:
+        """Test invalid CSV content records failure metadata."""
+        success = empty_db.load_csv(io.StringIO(""), "test_table")
+
+        assert success is False
+        assert empty_db.last_load_metadata["success"] is False
+        assert empty_db.last_load_metadata["stage"] == "load_csv"
+        assert empty_db.last_load_metadata["error_type"] is not None
 
     def test_context_manager(self) -> None:
         """Test using DuckDBManager as a context manager."""
