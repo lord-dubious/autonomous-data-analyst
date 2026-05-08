@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from api.main import app
+from data_analyst.agent import AgentAnalysisResult
 
 
 @pytest.fixture
@@ -124,6 +125,7 @@ class TestQueryEndpoint:
         assert data["row_count"] == 3
         assert len(data["columns"]) == 7
         assert len(data["data"]) == 3
+        assert data["metadata"]["load"]["success"] is True
 
     def test_query_with_aggregation(self, client: TestClient, sample_csv_bytes: bytes):
         """Test executing a query with aggregation."""
@@ -164,6 +166,24 @@ class TestQueryEndpoint:
         data = response.json()
         assert data["success"] is False
         assert data["error"] is not None
+        assert data["metadata"]["boundary"] == "duckdb_query"
+        assert data["metadata"]["degraded"] is True
+
+    def test_query_load_failure_returns_metadata(self, client: TestClient):
+        """Test CSV load failures include response-safe metadata."""
+        response = client.post(
+            "/query",
+            files={"file": ("data.csv", io.BytesIO(b""), "text/csv")},
+            data={"sql": "SELECT * FROM data"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is False
+        assert data["error"] == "Failed to load CSV file"
+        assert data["metadata"]["boundary"] == "csv_load"
+        assert data["metadata"]["load"]["success"] is False
+        assert data["metadata"]["load"]["error_type"] is not None
 
     def test_query_rejects_non_csv(self, client: TestClient):
         """Test that query endpoint rejects non-CSV files."""
@@ -179,16 +199,18 @@ class TestQueryEndpoint:
 class TestAnalyzeEndpoint:
     """Tests for the /analyze endpoint."""
 
-    @patch("api.main.analyze")
+    @patch("api.main.analyze_with_metadata")
     def test_analyze_success(
         self,
-        mock_analyze: AsyncMock,
+        mock_analyze_with_metadata: AsyncMock,
         client: TestClient,
         sample_csv_bytes: bytes,
     ):
         """Test successful analysis with mocked AI response."""
-        mock_analyze.return_value = (
-            "The data contains 3 records with Electronics and Home products."
+        mock_analyze_with_metadata.return_value = AgentAnalysisResult(
+            success=True,
+            output="The data contains 3 records with Electronics and Home products.",
+            metadata={"service": "pydantic_ai", "degraded": False},
         )
 
         response = client.post(
@@ -202,16 +224,28 @@ class TestAnalyzeEndpoint:
         assert data["success"] is True
         assert data["question"] == "Summarize the data"
         assert "3 records" in data["analysis"]
+        assert data["metadata"]["load"]["success"] is True
+        assert data["metadata"]["agent"]["degraded"] is False
 
-    @patch("api.main.analyze")
+    @patch("api.main.analyze_with_metadata")
     def test_analyze_with_error(
         self,
-        mock_analyze: AsyncMock,
+        mock_analyze_with_metadata: AsyncMock,
         client: TestClient,
         sample_csv_bytes: bytes,
     ):
         """Test analysis handles errors gracefully."""
-        mock_analyze.side_effect = Exception("API error")
+        mock_analyze_with_metadata.return_value = AgentAnalysisResult(
+            success=False,
+            output="",
+            error="Agent analysis failed before producing a response",
+            metadata={
+                "service": "pydantic_ai",
+                "degraded": True,
+                "error_type": "RuntimeError",
+                "boundary": "agent_run",
+            },
+        )
 
         response = client.post(
             "/analyze",
@@ -223,6 +257,23 @@ class TestAnalyzeEndpoint:
         data = response.json()
         assert data["success"] is False
         assert data["error"] is not None
+        assert data["metadata"]["boundary"] == "agent_run"
+        assert data["metadata"]["degraded"] is True
+
+    def test_analyze_load_failure_returns_metadata(self, client: TestClient):
+        """Test analyze CSV load failures include metadata."""
+        response = client.post(
+            "/analyze",
+            files={"file": ("data.csv", io.BytesIO(b""), "text/csv")},
+            data={"question": "Summarize the data"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is False
+        assert data["error"] == "Failed to load CSV file"
+        assert data["metadata"]["boundary"] == "csv_load"
+        assert data["metadata"]["load"]["success"] is False
 
     def test_analyze_rejects_non_csv(self, client: TestClient):
         """Test that analyze endpoint rejects non-CSV files."""

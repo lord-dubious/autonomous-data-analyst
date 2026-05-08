@@ -1,3 +1,1 @@
-"""Streamlit application package for Autonomous Data Analyst."""
-
-__all__ = ["streamlit_app"]
+"""Streamlit application package for CSV-backed analysis."""

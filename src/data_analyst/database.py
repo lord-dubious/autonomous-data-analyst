@@ -1,14 +1,14 @@
-"""DuckDB database interface for SQL analytics.
+"""DuckDB database interface for CSV-backed SQL analytics.
 
-This module provides a clean interface for loading data into DuckDB
-and executing SQL queries with proper error handling.
+This module loads CSV data into DuckDB and records explicit metadata for
+load/query failures so callers can report degraded states without stack traces.
 """
 
 from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 import duckdb
 import pandas as pd
@@ -42,8 +42,40 @@ class DuckDBManager:
         """
         self.db_path = db_path
         self.conn = duckdb.connect(db_path)
+        self.last_load_metadata: dict[str, Any] = {
+            "success": None,
+            "stage": "not_started",
+            "error": None,
+            "error_type": None,
+        }
         # Enable case-insensitive column access
         self.conn.execute("SET preserve_insertion_order=true")
+
+    def _record_load_metadata(
+        self,
+        *,
+        success: bool,
+        stage: str,
+        table_name: str,
+        source_type: str,
+        replace: bool,
+        row_count: int | None = None,
+        columns: list[str] | None = None,
+        error: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        """Store metadata for the most recent CSV load attempt."""
+        self.last_load_metadata = {
+            "success": success,
+            "stage": stage,
+            "table_name": table_name,
+            "source_type": source_type,
+            "replace": replace,
+            "row_count": row_count,
+            "columns": columns or [],
+            "error": error,
+            "error_type": error_type,
+        }
 
     def load_csv(
         self,
@@ -69,19 +101,41 @@ class DuckDBManager:
             True
         """
         try:
+            source_type = type(file_source).__name__
+
             # Handle different input types
             if isinstance(file_source, (Path, str)):
+                source_type = "path"
                 file_path = Path(file_source)
                 if not file_path.exists():
+                    self._record_load_metadata(
+                        success=False,
+                        stage="read_csv",
+                        table_name=table_name,
+                        source_type=source_type,
+                        replace=replace,
+                        error=f"CSV file not found: {file_path}",
+                        error_type="FileNotFoundError",
+                    )
                     return False
                 df = pd.read_csv(file_path)
             elif hasattr(file_source, "read"):
+                source_type = "file_like"
                 # File-like object (e.g., from Streamlit upload)
                 content = file_source.read()
                 if isinstance(content, bytes):
                     content = content.decode("utf-8")
                 df = pd.read_csv(io.StringIO(content))
             else:
+                self._record_load_metadata(
+                    success=False,
+                    stage="validate_source",
+                    table_name=table_name,
+                    source_type=source_type,
+                    replace=replace,
+                    error="file_source must be a path or file-like object",
+                    error_type="UnsupportedSourceType",
+                )
                 return False
 
             # Clean column names: lowercase, replace spaces with underscores
@@ -95,9 +149,28 @@ class DuckDBManager:
             self.conn.execute(f"CREATE TABLE {table_name} AS SELECT * FROM temp_df")
             self.conn.unregister("temp_df")
 
+            self._record_load_metadata(
+                success=True,
+                stage="loaded",
+                table_name=table_name,
+                source_type=source_type,
+                replace=replace,
+                row_count=len(df),
+                columns=list(df.columns),
+            )
+
             return True
 
-        except Exception:
+        except Exception as exc:
+            self._record_load_metadata(
+                success=False,
+                stage="load_csv",
+                table_name=table_name,
+                source_type=locals().get("source_type", type(file_source).__name__),
+                replace=replace,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             return False
 
     def execute_query(self, sql: str) -> QueryResult:
@@ -120,7 +193,7 @@ class DuckDBManager:
             rows = result.fetchall()
 
             # Convert to list of dictionaries
-            data = [dict(zip(columns, row)) for row in rows]
+            data = [dict(zip(columns, row, strict=True)) for row in rows]
 
             return QueryResult(
                 success=True,
@@ -128,6 +201,7 @@ class DuckDBManager:
                 columns=columns,
                 row_count=len(data),
                 error=None,
+                metadata={"boundary": "duckdb_query", "degraded": False},
             )
 
         except duckdb.Error as e:
@@ -137,6 +211,11 @@ class DuckDBManager:
                 columns=None,
                 row_count=0,
                 error=str(e),
+                metadata={
+                    "boundary": "duckdb_query",
+                    "degraded": True,
+                    "error_type": type(e).__name__,
+                },
             )
         except Exception as e:
             return QueryResult(
@@ -145,6 +224,11 @@ class DuckDBManager:
                 columns=None,
                 row_count=0,
                 error=f"Unexpected error: {e!s}",
+                metadata={
+                    "boundary": "duckdb_query",
+                    "degraded": True,
+                    "error_type": type(e).__name__,
+                },
             )
 
     def get_schema(self, table_name: str) -> TableSchema | None:
@@ -271,7 +355,7 @@ class DuckDBManager:
         if self.conn:
             self.conn.close()
 
-    def __enter__(self) -> "DuckDBManager":
+    def __enter__(self) -> DuckDBManager:
         """Context manager entry."""
         return self
 

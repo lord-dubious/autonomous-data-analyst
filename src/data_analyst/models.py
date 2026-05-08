@@ -4,7 +4,7 @@ These models ensure structured, validated responses from the AI agent
 and provide clear interfaces for data exchange between components.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,9 @@ class QueryResult(BaseModel):
     columns: list[str] | None = Field(default=None, description="Column names in result order")
     row_count: int = Field(default=0, description="Number of rows returned")
     error: str | None = Field(default=None, description="Error message if query failed")
+    metadata: dict[str, Any] | None = Field(
+        default=None, description="Optional execution metadata for diagnostics and degraded states"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -36,6 +39,7 @@ class QueryResult(BaseModel):
                     "columns": ["product", "revenue"],
                     "row_count": 2,
                     "error": None,
+                    "metadata": {"source": "duckdb"},
                 }
             ]
         }

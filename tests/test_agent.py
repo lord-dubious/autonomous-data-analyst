@@ -14,9 +14,16 @@ import pytest
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from data_analyst.agent import analyze_sync, create_agent
+from data_analyst import agent as agent_module
+from data_analyst.agent import analyze_sync, analyze_with_metadata, create_agent
 from data_analyst.database import DuckDBManager
 from data_analyst.models import AnalysisPlan, AnalysisResponse, ChartSpec
+
+
+@pytest.fixture(autouse=True)
+def google_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provide a dummy provider key for agent construction tests."""
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
 
 
 class TestAgentCreation:
@@ -42,7 +49,7 @@ class TestAgentTools:
         agent = create_agent()
 
         # Get registered tool names
-        tool_names = [tool.name for tool in agent._function_tools.values()]
+        tool_names = [tool.name for tool in agent._function_toolset.tools.values()]
 
         # Verify expected tools are present
         assert "execute_sql" in tool_names
@@ -50,6 +57,30 @@ class TestAgentTools:
         assert "list_available_tables" in tool_names
         assert "get_sample_rows" in tool_names
         assert "get_column_statistics" in tool_names
+
+
+class TestAgentFailureMetadata:
+    """Test suite for explicit agent degraded metadata."""
+
+    async def test_analyze_with_metadata_captures_agent_error(
+        self, sample_db: DuckDBManager, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test model/API failures are returned as metadata, not stack traces."""
+
+        async def failing_analyze(*_args: object, **_kwargs: object) -> str:
+            raise RuntimeError("service unavailable with private details")
+
+        monkeypatch.setattr(agent_module, "analyze", failing_analyze)
+
+        result = await analyze_with_metadata(sample_db, "Summarize sales")
+
+        assert result.success is False
+        assert result.output == ""
+        assert result.error == "Agent analysis failed before producing a response"
+        assert result.metadata["boundary"] == "agent_run"
+        assert result.metadata["degraded"] is True
+        assert result.metadata["error_type"] == "RuntimeError"
+        assert "private details" not in result.error
 
 
 class TestModels:

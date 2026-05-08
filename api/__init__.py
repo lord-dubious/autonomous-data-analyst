@@ -1,3 +1,1 @@
-"""FastAPI application package for Autonomous Data Analyst API."""
-
-__all__ = ["app"]
+"""FastAPI application package for the CSV analysis API."""

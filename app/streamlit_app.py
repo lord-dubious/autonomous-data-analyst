@@ -1,7 +1,7 @@
 """Streamlit web application for Autonomous Data Analyst.
 
 This module provides an interactive web interface for data analysis
-using the AI-powered data analyst agent.
+using DuckDB and optional Gemini-assisted agent responses.
 
 Run with: streamlit run app/streamlit_app.py
 """
@@ -94,35 +94,35 @@ def render_sidebar() -> None:
             help="Upload a CSV file to analyze. The data will be loaded into DuckDB.",
         )
 
-        if uploaded_file is not None:
-            if st.session_state.current_data is None or uploaded_file.name != st.session_state.get(
-                "uploaded_filename"
-            ):
-                with st.spinner("Loading data..."):
-                    try:
-                        # Reset file position
-                        uploaded_file.seek(0)
+        if uploaded_file is not None and (
+            st.session_state.current_data is None
+            or uploaded_file.name != st.session_state.get("uploaded_filename")
+        ):
+            with st.spinner("Loading data..."):
+                try:
+                    # Reset file position
+                    uploaded_file.seek(0)
 
-                        # Read as pandas for preview
-                        df = pd.read_csv(uploaded_file)
-                        st.session_state.current_data = df
+                    # Read as pandas for preview
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.current_data = df
 
-                        # Reset and load into DuckDB
-                        uploaded_file.seek(0)
-                        st.session_state.db = DuckDBManager()
-                        success = st.session_state.db.load_csv(
-                            uploaded_file, st.session_state.table_name
-                        )
+                    # Reset and load into DuckDB
+                    uploaded_file.seek(0)
+                    st.session_state.db = DuckDBManager()
+                    success = st.session_state.db.load_csv(
+                        uploaded_file, st.session_state.table_name
+                    )
 
-                        if success:
-                            st.session_state.data_loaded = True
-                            st.session_state.uploaded_filename = uploaded_file.name
-                            st.success(f"✅ Loaded {len(df):,} rows")
-                        else:
-                            st.error("Failed to load data")
+                    if success:
+                        st.session_state.data_loaded = True
+                        st.session_state.uploaded_filename = uploaded_file.name
+                        st.success(f"✅ Loaded {len(df):,} rows")
+                    else:
+                        st.error("Failed to load data")
 
-                    except Exception as e:
-                        st.error(f"Error loading file: {e}")
+                except Exception as e:
+                    st.error(f"Error loading file: {e}")
 
         # Data preview
         if st.session_state.data_loaded and st.session_state.current_data is not None:
@@ -145,9 +145,8 @@ def render_sidebar() -> None:
             st.session_state.messages = []
             st.rerun()
 
-        if st.button("📥 Export Chat", use_container_width=True):
-            if st.session_state.messages:
-                export_chat_history()
+        if st.button("📥 Export Chat", use_container_width=True) and st.session_state.messages:
+            export_chat_history()
 
         # Sample questions
         if st.session_state.data_loaded:
@@ -221,7 +220,7 @@ def create_chart(
 
         fig.update_layout(
             template="plotly_white",
-            margin=dict(l=40, r=40, t=60, b=40),
+            margin={"l": 40, "r": 40, "t": 60, "b": 40},
         )
         return fig
 
@@ -300,7 +299,7 @@ def render_chat_message(message: dict[str, Any]) -> None:
 
 
 async def process_question(question: str) -> str:
-    """Process a user question using the AI agent.
+    """Process a user question using the configured analysis agent.
 
     Args:
         question: The user's natural language question
@@ -362,7 +361,7 @@ def process_and_display_question(question: str) -> None:
     with st.chat_message("user"):
         st.markdown(question)
 
-    # Get AI response
+    # Get agent response
     with st.chat_message("assistant"):
         with st.spinner("Analyzing..."):
             response = asyncio.run(process_question(question))
@@ -383,7 +382,7 @@ def render_welcome_message() -> None:
 
         1. **Upload a CSV file** using the sidebar on the left
         2. **Ask questions** about your data in natural language
-        3. **Get insights** with AI-powered analysis
+        3. **Review analysis** generated from DuckDB queries and optional Gemini assistance
 
         ### Example Questions
 

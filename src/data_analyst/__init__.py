@@ -1,25 +1,27 @@
 """Autonomous Data Analyst - Core Library.
 
-This package provides the core functionality for the AI-powered data analyst:
+This package provides core functionality for CSV-backed analysis:
 - Pydantic models for type-safe data structures
 - DuckDB database interface for SQL analytics
-- Pydantic AI agent for natural language analysis
+- Pydantic AI agent helpers for optional natural language analysis
 - Tools for agent operations
 """
 
+from data_analyst.agent import (
+    AgentAnalysisResult,
+    analyze,
+    analyze_sync,
+    analyze_with_metadata,
+    create_agent,
+    get_agent,
+)
+from data_analyst.database import DuckDBManager
 from data_analyst.models import (
     AnalysisPlan,
     AnalysisResponse,
     ChartSpec,
     QueryResult,
     TableSchema,
-)
-from data_analyst.database import DuckDBManager
-from data_analyst.agent import (
-    analyze,
-    analyze_sync,
-    create_agent,
-    get_agent,
 )
 
 __all__ = [
@@ -32,7 +34,9 @@ __all__ = [
     # Database
     "DuckDBManager",
     # Agent
+    "AgentAnalysisResult",
     "analyze",
+    "analyze_with_metadata",
     "analyze_sync",
     "create_agent",
     "get_agent",
