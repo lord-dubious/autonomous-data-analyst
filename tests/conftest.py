@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
