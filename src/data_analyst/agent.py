@@ -1,13 +1,15 @@
-"""Pydantic AI agent for data analysis.
+"""Pydantic AI agent helpers for data analysis.
 
-This module provides the main AI agent that uses Gemini to analyze data
-through natural language queries.
+The agent can use Gemini through Pydantic AI when credentials and network access
+are available. Helper functions expose explicit degraded metadata when the model
+call fails or external service access is unavailable.
 """
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from dotenv import load_dotenv
 from pydantic_ai import Agent
@@ -28,13 +30,13 @@ if TYPE_CHECKING:
 load_dotenv()
 
 # System prompt for the data analyst agent
-SYSTEM_PROMPT = """You are an expert data analyst assistant powered by AI.
-Your role is to help users understand and analyze their data through natural language.
+SYSTEM_PROMPT = """You are a data analysis assistant that can call DuckDB tools.
+Your role is to help users inspect CSV-backed data through natural language.
 
 ## Your Capabilities
 - Execute SQL queries on DuckDB (PostgreSQL-like syntax)
-- Analyze data patterns and trends
-- Provide insights and recommendations
+- Summarize observed data patterns and trends
+- Provide caveated observations and recommendations
 - Suggest appropriate visualizations
 
 ## Workflow
@@ -67,7 +69,17 @@ Your role is to help users understand and analyze their data through natural lan
 - If data is missing or unexpected, acknowledge and adapt
 - Always provide helpful suggestions even when analysis is limited
 
-Remember: Be concise but thorough. Focus on actionable insights."""
+Remember: Be concise but thorough. Base conclusions on tool results and state limits clearly."""
+
+
+@dataclass
+class AgentAnalysisResult:
+    """Result wrapper for agent runs with explicit external-service metadata."""
+
+    success: bool
+    output: str
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def create_agent(model_name: str | None = None) -> Agent[DuckDBManager, str]:
@@ -144,11 +156,48 @@ async def analyze(
         >>> response = await analyze(db, "What is the total revenue by product?")
         >>> print(response)
     """
-    if agent is None:
-        agent = get_agent()
+    run_agent = agent or get_agent()
 
-    result: AgentRunResult[str] = await agent.run(question, deps=db)
+    result: AgentRunResult[str] = await run_agent.run(question, deps=db)
     return result.output
+
+
+async def analyze_with_metadata(
+    db: DuckDBManager,
+    question: str,
+    *,
+    agent: Agent[DuckDBManager, str] | None = None,
+) -> AgentAnalysisResult:
+    """Analyze data and return explicit success/error metadata.
+
+    This preserves the original ``analyze`` function while giving API callers a
+    non-throwing boundary for Gemini/Pydantic AI failures.
+    """
+    model_name = os.getenv("MODEL_NAME", "google-gla:gemini-2.5-flash")
+    metadata: dict[str, Any] = {
+        "service": "pydantic_ai",
+        "model": model_name,
+        "degraded": False,
+    }
+
+    try:
+        output = await analyze(db, question, agent=agent)
+    except Exception as exc:
+        metadata.update(
+            {
+                "degraded": True,
+                "error_type": type(exc).__name__,
+                "boundary": "agent_run",
+            }
+        )
+        return AgentAnalysisResult(
+            success=False,
+            output="",
+            error="Agent analysis failed before producing a response",
+            metadata=metadata,
+        )
+
+    return AgentAnalysisResult(success=True, output=output, metadata=metadata)
 
 
 def analyze_sync(
@@ -172,8 +221,7 @@ def analyze_sync(
         >>> db.load_csv("sales.csv", "data")
         >>> response = analyze_sync(db, "What is the total revenue?")
     """
-    if agent is None:
-        agent = get_agent()
+    run_agent = agent or get_agent()
 
-    result = agent.run_sync(question, deps=db)
+    result = run_agent.run_sync(question, deps=db)
     return result.output
