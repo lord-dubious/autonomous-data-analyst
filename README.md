@@ -6,14 +6,14 @@
 [![Pydantic AI](https://img.shields.io/badge/Pydantic%20AI-Powered-green.svg)](https://ai.pydantic.dev/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-Embedded-orange.svg)](https://duckdb.org/)
 
-An AI-powered data analyst that uses natural language to analyze your data. Upload a CSV, ask questions in plain English, and get insights with automatically generated visualizations.
+A CSV analysis demo that loads uploaded files into DuckDB and can use Gemini through Pydantic AI for natural-language assistance when configured. Results depend on CSV quality, DuckDB SQL support, and external model availability.
 
 ## Features
 
-- **Natural Language Queries** - Ask questions about your data in plain English
-- **Auto-Generated Charts** - Plotly visualizations based on AI recommendations
+- **Natural Language Queries** - Ask questions about your CSV data when Gemini is available
+- **Generated Charts** - Plotly visualizations based on returned analysis metadata
 - **DuckDB Backend** - Fast in-process SQL analytics (no database setup required)
-- **Type-Safe AI** - Pydantic AI for validated, structured LLM responses
+- **Agent Integration** - Pydantic AI tools around DuckDB queries and schema inspection
 - **Dual Interface** - Streamlit web UI + FastAPI REST API
 - **Conversation History** - Track your analysis session
 - **Export Results** - Download data as CSV or charts as images
@@ -101,7 +101,7 @@ docker-compose up
    - "What is the total revenue by region?"
    - "Show me sales trends over time"
    - "Which product has the highest quantity sold?"
-4. View AI-generated insights and charts
+4. Review generated analysis text, query results, and any charts
 5. Export results as needed
 
 ### REST API (FastAPI)
@@ -113,7 +113,7 @@ The API is available at http://localhost:8000 with interactive docs at `/docs`.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/analyze` | POST | AI-powered analysis with file upload |
+| `/analyze` | POST | Gemini-assisted analysis with file upload |
 | `/query` | POST | Execute SQL queries on uploaded data |
 | `/schema` | POST | Get schema of uploaded CSV |
 
@@ -123,7 +123,7 @@ The API is available at http://localhost:8000 with interactive docs at `/docs`.
 ```python
 import httpx
 
-# Analyze data with AI
+# Analyze data with Gemini assistance
 with open("data.csv", "rb") as f:
     response = httpx.post(
         "http://localhost:8000/analyze",
@@ -141,7 +141,9 @@ with open("data.csv", "rb") as f:
         data={"sql": "SELECT product, SUM(revenue) FROM data GROUP BY product"}
     )
     result = response.json()
-    print(result["rows"])
+    print(result["data"])
+
+Responses include `metadata` fields for CSV load, DuckDB query, and agent degraded/error boundaries when available.
 
 # Get schema
 with open("data.csv", "rb") as f:
@@ -200,11 +202,11 @@ Try these example questions with the sample data:
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
-| **LLM** | Gemini 2.0 Flash | Fast, capable language model |
-| **Agent Framework** | Pydantic AI | Type-safe, validated AI responses |
+| **LLM** | Gemini | Optional external model used by Pydantic AI |
+| **Agent Framework** | Pydantic AI | Tool-calling wrapper for DuckDB-backed analysis |
 | **Database** | DuckDB | In-process SQL analytics |
 | **Web UI** | Streamlit | Interactive data apps |
-| **REST API** | FastAPI | High-performance API |
+| **REST API** | FastAPI | HTTP API for upload, schema, query, and analysis endpoints |
 | **Charts** | Plotly | Interactive visualizations |
 | **Testing** | pytest + pytest-recording | Deterministic LLM testing |
 
@@ -310,7 +312,7 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key data-analyst \
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key ([Get one free](https://aistudio.google.com/app/apikey)) |
+| `GEMINI_API_KEY` | Required for `/analyze` and chat assistance | Google Gemini API key. `/query` and `/schema` use DuckDB and do not call Gemini. |
 
 ## Contributing
 
@@ -328,7 +330,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [Pydantic AI](https://ai.pydantic.dev/) for the type-safe agent framework
-- [DuckDB](https://duckdb.org/) for the blazing-fast embedded database
-- [Google Gemini](https://ai.google.dev/) for the LLM backbone
-- [Streamlit](https://streamlit.io/) for the beautiful web interface
+- [Pydantic AI](https://ai.pydantic.dev/) for the agent tool framework
+- [DuckDB](https://duckdb.org/) for the embedded SQL engine
+- [Google Gemini](https://ai.google.dev/) for optional model-assisted responses
+- [Streamlit](https://streamlit.io/) for the web interface

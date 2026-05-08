@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "autonomous-data-analyst"
 version = "1.0.0"
-description = "AI-powered data analyst using Pydantic AI, Gemini, DuckDB & Streamlit"
+description = "CSV analysis app using DuckDB, Streamlit, FastAPI, and optional Gemini assistance"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
