@@ -2,16 +2,69 @@
 
 [![CI](https://github.com/lord-dubious/autonomous-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/lord-dubious/autonomous-data-analyst/actions/workflows/ci.yml)
 
-## Portfolio Review
+## Portfolio Showcase
 
-- [Architecture](docs/ARCHITECTURE.md) - component boundaries, data flow, external dependencies, and degraded-mode behavior.
-- [Demo Guide](docs/DEMO.md) - safe local walkthrough commands and recruiter-facing talking points.
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Pydantic AI](https://img.shields.io/badge/Pydantic%20AI-Powered-green.svg)](https://ai.pydantic.dev/)
-[![DuckDB](https://img.shields.io/badge/DuckDB-Embedded-orange.svg)](https://duckdb.org/)
+![Autonomous Data Analyst CLI showcase](docs/assets/showcase.png)
 
-A CSV analysis demo that loads uploaded files into DuckDB and can use Gemini through Pydantic AI for natural-language assistance when configured. Results depend on CSV quality, DuckDB SQL support, and external model availability.
+- **Architecture deep dive:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Demo guide:** [`docs/DEMO.md`](docs/DEMO.md)
+- **Reviewer focus:** DuckDB CSV loading, FastAPI/Streamlit/CLI surfaces, Pydantic AI analysis, and sanitized degraded metadata.
+
+## Architecture Overview
+
+```mermaid
+flowchart TB
+    classDef input fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63
+    classDef core fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef external fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef metadata fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef review fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+
+    CSV[/CSV dataset/]:::input
+    Question[/Natural-language question/]:::input
+    User[/Analyst or reviewer/]:::review
+
+    subgraph DataLayer["Data Loading Boundary"]
+        Loader[DuckDBManager CSV loader]:::core
+        DuckDB[(DuckDB)]:::external
+        LoadMeta[last_load_metadata]:::metadata
+    end
+
+    subgraph Interfaces["User Interfaces"]
+        API[FastAPI service]:::core
+        App[Streamlit app]:::core
+        CLI[data-analyst entrypoint]:::core
+    end
+
+    subgraph Intelligence["Analysis Boundary"]
+        Agent[Pydantic AI analysis agent]:::core
+        Gemini{{Gemini API optional}}:::external
+        QueryResult[QueryResult metadata]:::metadata
+        AnalysisMeta[Agent degraded metadata]:::metadata
+    end
+
+    subgraph Output["Reviewable Answers"]
+        Response[Sanitized API or UI response]:::review
+        Charts[Charts exports and tables]:::review
+    end
+
+    CSV --> Loader --> DuckDB
+    Loader -. load failure .-> LoadMeta
+    Question --> API
+    Question --> App
+    Question --> CLI
+    API --> Agent
+    App --> Agent
+    CLI --> Agent
+    Agent <-->|optional reasoning| Gemini
+    Agent --> DuckDB
+    DuckDB --> QueryResult --> Agent
+    Agent -. provider failure .-> AnalysisMeta
+    LoadMeta --> Response
+    AnalysisMeta --> Response
+    Agent --> Response --> User
+    QueryResult --> Charts --> User
+```
 
 ## Features
 
@@ -23,32 +76,6 @@ A CSV analysis demo that loads uploaded files into DuckDB and can use Gemini thr
 - **Conversation History** - Track your analysis session
 - **Export Results** - Download data as CSV or charts as images
 - **Docker Ready** - One-command deployment with Docker Compose
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "User Interface"
-        A[Streamlit Web App]
-        B[FastAPI REST API]
-    end
-
-    subgraph "AI Layer"
-        C[Pydantic AI Agent]
-        D[Gemini 2.0 Flash]
-    end
-
-    subgraph "Data Layer"
-        E[DuckDB Engine]
-        F[CSV/Data Files]
-    end
-
-    A --> C
-    B --> C
-    C <--> D
-    C --> E
-    E --> F
-```
 
 ## Quick Start
 
